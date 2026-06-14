@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CaptureBox Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 20px; letter-spacing: 2px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: #16213e; border-radius: 10px; padding: 16px; }
+    h2 { margin-bottom: 12px; font-size: 1rem; text-transform: uppercase; opacity: 0.7; }
+    .faction-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .faction-dot { width: 14px; height: 14px; border-radius: 50%; }
+    .bar-bg { flex: 1; background: #0f3460; border-radius: 4px; height: 20px; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 1s; }
+    #map { height: 300px; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    td, th { padding: 6px 8px; text-align: left; border-bottom: 1px solid #0f3460; }
+    th { opacity: 0.6; }
+    .full { grid-column: 1 / -1; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .full { grid-column: 1; } }
+  </style>
+</head>
+<body>
+  <h1>⚡ CaptureBox</h1>
+  <div class="grid">
+
+    <div class="card">
+      <h2>Faction Scores (hours owned)</h2>
+      {% set max_hours = totals[0][1] if totals else 1 %}
+      {% for faction_id, hours in totals %}
+      {% set f = factions[faction_id] %}
+      <div class="faction-bar">
+        <div class="faction-dot" style="background:{{ f.color }}"></div>
+        <span style="width:60px">{{ f.name }}</span>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:{{ (hours/max_hours*100)|int }}%; background:{{ f.color }}"></div>
+        </div>
+        <span>{{ "%.1f"|format(hours) }}h</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h2>Box Status</h2>
+      <table>
+        <tr><th>Box</th><th>Faction</th><th>Since</th></tr>
+        {% for box_id, name, lat, lng, faction_id, started_at in boxes %}
+        <tr>
+          <td>{{ name or box_id }}</td>
+          <td style="color:{{ factions[faction_id].color if faction_id and faction_id in factions else '#888' }}">
+            {{ factions[faction_id].name if faction_id and faction_id in factions else 'Neutral' }}
+          </td>
+          <td>{{ started_at[:16] if started_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="card full">
+      <h2>Map</h2>
+      <div id="map"></div>
+    </div>
+
+    <div class="card full">
+      <h2>Recent Events</h2>
+      <table>
+        <tr><th>Time</th><th>Box</th><th>Faction</th><th>Card</th></tr>
+        {% for ts, box_id, faction_id, card_uid in events %}
+        <tr>
+          <td>{{ ts[:16] }}</td>
+          <td>{{ box_id }}</td>
+          <td style="color:{{ factions[faction_id].color if faction_id and faction_id in factions else '#888' }}">
+            {{ factions[faction_id].name if faction_id and faction_id in factions else '?' }}
+          </td>
+          <td style="font-size:0.75rem;opacity:0.6">{{ card_uid }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([51.2, 4.4], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const boxes = {{ boxes | tojson }};
+    const factions = {{ factions | tojson }};
+    const colors = { 1:'#e74c3c', 2:'#2980b9', 3:'#27ae60', 4:'#f1c40f' };
+
+    boxes.forEach(([box_id, name, lat, lng, faction_id, started_at]) => {
+      if (!lat || !lng) return;
+      const color = colors[faction_id] || '#888';
+      const marker = L.circleMarker([lat, lng], {
+        radius: 12, fillColor: color, color: '#fff',
+        weight: 2, fillOpacity: 0.9
+      }).addTo(map);
+      marker.bindPopup(`<b>${name || box_id}</b><br>Faction: ${factions[faction_id]?.name || 'Neutral'}`);
+    });
+
+    // Auto-refresh every 30 seconds
+    setTimeout(() => location.reload(), 30000);
+  </script>
+</body>
+</html>
