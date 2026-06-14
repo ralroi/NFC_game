@@ -1,4 +1,4 @@
-# CaptureBox — Raspberry Pi Setup Guide
+# CaptureBox — Raspberry Pi Setup Guide (you need to build boxes as well, different repository
 
 ## What this is
 
