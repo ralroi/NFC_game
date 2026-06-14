@@ -1,9 +1,9 @@
-# CaptureBox — Raspberry Pi Setup Guide (you need to build boxes as well, different repository
+# CaptureBox — Raspberry Pi Setup Guide 
 
 ## What this is
 
 CaptureBox is a real-world territory capture game. Physical boxes are placed around a game area. Players scan NFC cards at boxes to claim them for their faction. The faction that holds boxes the longest wins. This Raspberry Pi runs the game server, dashboard, NFC card admin, and LoRa radio receiver.
-
+Beside the Pi/host, you need to build boxes as well where the card can be scanned. Please check NFC_game_box.
 ---
 
 ## Hardware required
