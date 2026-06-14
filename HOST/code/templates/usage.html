@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Box Usage — CaptureBox{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Box Usage Report</h1></div>
+
+<!-- USAGE STATS GRID -->
+<div class="grid grid-auto" style="margin-bottom:20px">
+{% for s in stats %}
+<div class="card stat-summary-card">
+  <div class="stat-summary-name">{{ s.name or s.box_id }}</div>
+  <div class="stat-summary-row">
+    <span class="stat-summary-label">Total scans</span>
+    <span class="stat-summary-val">{{ s.total_scans }}</span>
+  </div>
+  <div class="stat-summary-row">
+    <span class="stat-summary-label">Unique cards</span>
+    <span class="stat-summary-val">{{ s.unique_cards }}</span>
+  </div>
+  <div class="stat-summary-row">
+    <span class="stat-summary-label">Captures</span>
+    <span class="stat-summary-val">{{ s.captures }}</span>
+  </div>
+  <div class="stat-summary-last">
+    Last activity: {{ s.last_activity[11:16] if s.last_activity else 'Never' }}
+  </div>
+  <a href="{{ url_for('box_events', box_id=s.box_id) }}" class="btn btn-sm" style="margin-top:8px;width:100%">
+    View Events
+  </a>
+</div>
+{% else %}
+<div class="empty-state">No boxes registered yet.</div>
+{% endfor %}
+</div>
+
+<!-- FULL EVENT TABLE WITH FILTERS -->
+<div class="card">
+  <div class="card-header-row">
+    <h2 class="card-title">All Events</h2>
+    <div class="filter-bar">
+      <input type="text" id="ev-search" placeholder="Search card, box, player…" class="input input-search">
+      <select id="ev-type" class="input input-sm">
+        <option value="">All types</option>
+        {% for t in ['capture','lost','rescan','heartbeat','card_registered','unknown','bankcard','blocked_card','admin_reset'] %}
+        <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Box</th><th>Event</th><th>Faction</th><th>Card UID</th><th>Player</th><th>RSSI</th></tr>
+    </thead>
+    <tbody id="ev-body">
+      {% for e in events %}
+      <tr class="ev-row" data-type="{{ e.event_type }}" data-text="{{ (e.card_uid or '') ~ (e.box_name or e.box_id or '') ~ (e.player_name or '') | lower }}">
+        <td class="small text-muted mono">{{ e.timestamp[:16] }}</td>
+        <td>{{ e.box_name or e.box_id }}</td>
+        <td><span class="event-type event-{{ e.event_type }}">{{ e.event_type }}</span></td>
+        <td>
+          {% if e.faction_id %}
+          <span class="badge" style="background:{{ e.color_hex }}20;color:{{ e.color_hex }}">
+            {{ e.color_name }}
+          </span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td class="mono small text-muted">{{ e.card_uid or '—' }}</td>
+        <td class="small">{{ e.player_name or '—' }}</td>
+        <td class="small text-muted">{{ e.rssi or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">No events yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const search  = document.getElementById('ev-search');
+const typeSel = document.getElementById('ev-type');
+
+function filter() {
+  const q = search.value.toLowerCase();
+  const t = typeSel.value;
+  document.querySelectorAll('.ev-row').forEach(row => {
+    const matchQ = !q || row.dataset.text.includes(q);
+    const matchT = !t || row.dataset.type === t;
+    row.style.display = matchQ && matchT ? '' : 'none';
+  });
+}
+search.addEventListener('input', filter);
+typeSel.addEventListener('change', filter);
+</script>
+{% endblock %}

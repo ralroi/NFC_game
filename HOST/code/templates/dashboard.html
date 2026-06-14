@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <span class="refresh-label" id="refresh-label">Refreshing in <span id="countdown">30</span>s</span>
+</div>
+
+<div class="grid grid-3">
+
+  <!-- FACTION SCORES -->
+  {% set max_min = scores[0].minutes_owned if scores and scores[0].minutes_owned > 0 else 1 %}
+  {% for s in scores %}
+  <div class="card score-card" style="border-top: 3px solid {{ s.color_hex }}">
+    <div class="score-header">
+      <span class="faction-dot" style="background:{{ s.color_hex }}"></span>
+      <span class="faction-label">{{ s.name }}</span>
+      <span class="score-badge" style="color:{{ s.color_hex }}">
+        {{ s.boxes_held }} box{% if s.boxes_held != 1 %}es{% endif %}
+      </span>
+    </div>
+    <div class="score-time">
+      {{ '%d'|format(s.minutes_owned // 60) }}h {{ '%02d'|format(s.minutes_owned % 60) }}m
+    </div>
+    <div class="bar-bg">
+      <div class="bar-fill" style="width:{{ [(s.minutes_owned / max_min * 100)|int, 100]|min }}%;background:{{ s.color_hex }}"></div>
+    </div>
+    <div class="score-players">
+      {% for p in players if p.id == s.id %}{{ p.player_count }} player{% if p.player_count != 1 %}s{% endif %}{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<div class="grid grid-2" style="margin-top:20px">
+
+  <!-- MAP -->
+  <div class="card card-tall">
+    <h2 class="card-title">Box Map</h2>
+    <div id="map"></div>
+  </div>
+
+  <!-- BOX STATUS TABLE -->
+  <div class="card">
+    <h2 class="card-title">Box Status</h2>
+    <table>
+      <thead>
+        <tr><th>Box</th><th>Owner</th><th>Battery</th><th>Signal</th><th>Last Seen</th></tr>
+      </thead>
+      <tbody>
+        {% for b in boxes %}
+        <tr class="{% if b.stolen %}row-danger{% elif not b.active %}row-muted{% endif %}">
+          <td>
+            <a href="{{ url_for('box_events', box_id=b.box_id) }}" class="link">
+              {{ b.name or b.box_id }}
+            </a>
+            {% if b.stolen %}<span class="tag tag-danger">STOLEN</span>{% endif %}
+            {% if not b.active %}<span class="tag tag-muted">OFF</span>{% endif %}
+          </td>
+          <td>
+            {% if b.current_faction %}
+            <span class="badge" style="background:{{ b.color_hex }}20;color:{{ b.color_hex }}">
+              {{ b.color_name }}
+            </span>
+            {% else %}
+            <span class="badge badge-neutral">Neutral</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if b.battery_pct is not none %}
+            <span class="battery {% if b.battery_pct < 20 %}battery-low{% elif b.battery_pct < 50 %}battery-mid{% else %}battery-ok{% endif %}">
+              {{ b.battery_pct }}%
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{% if b.rssi %}{{ b.rssi }} dBm{% else %}—{% endif %}</td>
+          <td class="text-muted small">
+            {% if b.last_heartbeat %}{{ b.last_heartbeat[11:16] }}{% else %}Never{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty">No boxes registered yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- RECENT EVENTS -->
+<div class="card" style="margin-top:20px">
+  <h2 class="card-title">Live Event Feed</h2>
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Box</th><th>Event</th><th>Faction</th><th>Card</th><th>Player</th></tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="small text-muted">{{ e.timestamp[11:16] }}</td>
+        <td>{{ e.box_name or e.box_id }}</td>
+        <td><span class="event-type event-{{ e.event_type }}">{{ e.event_type }}</span></td>
+        <td>
+          {% if e.faction_id %}
+          <span class="badge" style="background:{{ e.color_hex }}20;color:{{ e.color_hex }}">
+            {{ e.color_name }}
+          </span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td class="mono small text-muted">{{ e.card_uid or '—' }}</td>
+        <td class="small">{{ e.player_name or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No events yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Map
+const map = L.map('map').setView([51.22, 4.4], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution:'© OpenStreetMap'}).addTo(map);
+
+const boxes = {{ boxes | tojson }};
+boxes.forEach(b => {
+  if (!b.lat || !b.lng) return;
+  const color = b.color_hex || '#555';
+  L.circleMarker([b.lat, b.lng], {
+    radius:9, fillColor:color, color:'#fff',
+    weight:2, fillOpacity:0.9
+  }).addTo(map)
+  .bindPopup(`<b>${b.name||b.box_id}</b><br>
+    ${b.faction_name||'Neutral'}<br>
+    Battery: ${b.battery_pct||'?'}%`);
+});
+
+// Countdown + auto-refresh
+let t = 30;
+const label = document.getElementById('countdown');
+const iv = setInterval(()=>{
+  t--;
+  if(label) label.textContent = t;
+  if(t<=0){ clearInterval(iv); location.reload(); }
+}, 1000);
+</script>
+{% endblock %}

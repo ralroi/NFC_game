@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <a href="{{ url_for('boxes') }}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="card" style="max-width:600px">
+  <form method="post">
+
+    <div class="form-group">
+      <label>Box ID <span class="required">*</span></label>
+      <input type="text" name="box_id" value="{{ box.box_id if box else '' }}"
+             placeholder="BOX_01" class="input" required
+             {% if box %}readonly{% endif %}>
+      <small class="hint">Unique identifier — must match firmware. Cannot be changed after creation.</small>
+    </div>
+
+    <div class="form-group">
+      <label>Display Name</label>
+      <input type="text" name="name" value="{{ box.name if box else '' }}"
+             placeholder="Town Hall" class="input">
+    </div>
+
+    <div class="form-group">
+      <label>Location Description</label>
+      <input type="text" name="location_desc"
+             value="{{ box.location_desc if box else '' }}"
+             placeholder="Near the main entrance" class="input">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Latitude</label>
+        <input type="number" name="lat" step="any"
+               value="{{ box.lat if box else '' }}"
+               placeholder="51.2194" class="input" id="lat-input">
+      </div>
+      <div class="form-group">
+        <label>Longitude</label>
+        <input type="number" name="lng" step="any"
+               value="{{ box.lng if box else '' }}"
+               placeholder="4.4025" class="input" id="lng-input">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Click map to set location</label>
+      <div id="map-picker" style="height:250px;border-radius:8px;border:1px solid var(--border)"></div>
+    </div>
+
+    {% if box %}
+    <div class="form-group">
+      <label>Active</label>
+      <select name="active" class="input">
+        <option value="1" {% if box.active %}selected{% endif %}>Yes — box participates in game</option>
+        <option value="0" {% if not box.active %}selected{% endif %}>No — box disabled</option>
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea name="notes" class="input" rows="2"
+                placeholder="Physical description, access notes...">{{ box.notes if box else '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save Box</button>
+      <a href="{{ url_for('boxes') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const latIn = document.getElementById('lat-input');
+const lngIn = document.getElementById('lng-input');
+const initLat = parseFloat(latIn.value) || 51.22;
+const initLng = parseFloat(lngIn.value) || 4.40;
+
+const map = L.map('map-picker').setView([initLat, initLng], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let marker = null;
+if (latIn.value && lngIn.value) {
+  marker = L.marker([initLat, initLng]).addTo(map);
+}
+
+map.on('click', e => {
+  const {lat, lng} = e.latlng;
+  latIn.value = lat.toFixed(6);
+  lngIn.value = lng.toFixed(6);
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([lat, lng]).addTo(map);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Cards — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Card Management</h1>
+  <a href="{{ url_for('nfc_admin') }}" class="btn btn-primary">📡 NFC Scanner</a>
+</div>
+
+<!-- Manual register form -->
+<div class="card" style="margin-bottom:20px">
+  <h2 class="card-title">Register Card Manually</h2>
+  <form method="post" action="{{ url_for('card_register') }}" class="form-inline">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Card UID</label>
+        <input type="text" name="uid" placeholder="A1-B2-C3-D4" class="input" required>
+      </div>
+      <div class="form-group">
+        <label>Faction</label>
+        <select name="faction_id" class="input" required>
+          <option value="">Select faction…</option>
+          {% for f in factions %}
+          <option value="{{ f.id }}">{{ f.name }} ({{ f.color_name }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Player Name (optional)</label>
+        <input type="text" name="player_name" placeholder="Player name" class="input">
+      </div>
+      <div class="form-group form-group-end">
+        <button type="submit" class="btn btn-primary">Register</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="text" id="card-search" placeholder="Search UID or player…" class="input input-search">
+  <select id="faction-filter" class="input input-sm">
+    <option value="">All factions</option>
+    {% for f in factions %}
+    <option value="{{ f.id }}">{{ f.color_name }}</option>
+    {% endfor %}
+    <option value="0">Unregistered</option>
+  </select>
+  <select id="status-filter" class="input input-sm">
+    <option value="">All status</option>
+    <option value="active">Active</option>
+    <option value="blocked">Blocked</option>
+  </select>
+</div>
+
+<!-- Cards table -->
+<div class="card">
+  <table id="cards-table">
+    <thead>
+      <tr>
+        <th>UID</th>
+        <th>Player</th>
+        <th>Faction</th>
+        <th>Type</th>
+        <th>Scans</th>
+        <th>Registered</th>
+        <th>Last Seen</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in cards %}
+      <tr class="card-row {% if c.blocked %}row-danger{% endif %}"
+          data-uid="{{ c.uid }}"
+          data-faction="{{ c.faction_id or 0 }}"
+          data-status="{{ 'blocked' if c.blocked else 'active' }}">
+        <td class="mono small">{{ c.uid }}</td>
+        <td>{{ c.player_name or '—' }}</td>
+        <td>
+          {% if c.faction_id %}
+          <span class="badge" style="background:{{ c.color_hex }}20;color:{{ c.color_hex }}">
+            {{ c.color_name }}
+          </span>
+          {% else %}
+          <span class="badge badge-neutral">—</span>
+          {% endif %}
+        </td>
+        <td class="small text-muted">{{ c.card_type }}</td>
+        <td>{{ c.scan_count }}</td>
+        <td class="small text-muted">{{ c.registered_at[:10] }}</td>
+        <td class="small text-muted">{{ c.last_seen_at[:16] if c.last_seen_at else 'Never' }}</td>
+        <td>
+          {% if c.blocked %}
+          <span class="tag tag-danger">Blocked</span>
+          {% else %}
+          <span class="tag tag-ok">Active</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="action-row">
+            {% if c.blocked %}
+            <form method="post" action="{{ url_for('card_unblock', uid=c.uid) }}">
+              <button class="btn btn-sm btn-success">Unblock</button>
+            </form>
+            {% else %}
+            <form method="post" action="{{ url_for('card_block', uid=c.uid) }}">
+              <button class="btn btn-sm btn-warning">Block</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{{ url_for('card_reset', uid=c.uid) }}"
+                  onsubmit="return confirm('Reset card {{ c.uid }}? This removes faction assignment.')">
+              <button class="btn btn-sm btn-danger">Reset</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty">No cards registered yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live search + filter
+const searchIn = document.getElementById('card-search');
+const factionSel = document.getElementById('faction-filter');
+const statusSel  = document.getElementById('status-filter');
+
+function applyFilters() {
+  const q       = searchIn.value.toLowerCase();
+  const faction = factionSel.value;
+  const status  = statusSel.value;
+
+  document.querySelectorAll('.card-row').forEach(row => {
+    const uid    = row.dataset.uid.toLowerCase();
+    const fid    = row.dataset.faction;
+    const stat   = row.dataset.status;
+    const text   = row.textContent.toLowerCase();
+
+    const matchQ = !q || uid.includes(q) || text.includes(q);
+    const matchF = !faction || fid === faction;
+    const matchS = !status || stat === status;
+
+    row.style.display = (matchQ && matchF && matchS) ? '' : 'none';
+  });
+}
+
+searchIn.addEventListener('input', applyFilters);
+factionSel.addEventListener('change', applyFilters);
+statusSel.addEventListener('change', applyFilters);
+</script>
+{% endblock %}

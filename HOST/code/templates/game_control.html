@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Game Control — CaptureBox{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Game Control</h1></div>
+
+<!-- STATUS BANNER -->
+<div class="game-banner {{ current_status }}">
+  {% if current_status == 'active' %}
+    ● GAME ACTIVE — running
+  {% elif current_status == 'paused' %}
+    ⏸ GAME PAUSED
+  {% else %}
+    ○ NO GAME RUNNING
+  {% endif %}
+</div>
+
+<div class="grid grid-2">
+
+  <!-- START GAME -->
+  <div class="card">
+    <h2 class="card-title">Start New Game</h2>
+    <form method="post" action="{{ url_for('game_start') }}">
+      <div class="form-group">
+        <label>Game Name</label>
+        <input type="text" name="game_name" class="input"
+               placeholder="Summer Camp 2025" required>
+      </div>
+      <div class="form-group">
+        <label>Scenario</label>
+        <select name="scenario_id" class="input">
+          {% for sc in scenarios %}
+          <option value="{{ sc.id }}" {% if sc.active %}selected{% endif %}>
+            {{ sc.name }} — {{ sc.description[:60] if sc.description else '' }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary"
+              onclick="return confirm('Start the game?')">▶ Start Game</button>
+    </form>
+  </div>
+
+  <!-- GAME CONTROLS -->
+  <div class="card">
+    <h2 class="card-title">Controls</h2>
+    <div class="action-row" style="flex-wrap:wrap;gap:10px">
+      <form method="post" action="{{ url_for('game_pause') }}">
+        <button class="btn btn-warning" {% if current_status != 'active' %}disabled{% endif %}>
+          ⏸ Pause Game
+        </button>
+      </form>
+      <form method="post" action="{{ url_for('game_stop') }}">
+        <button class="btn btn-danger"
+                onclick="return confirm('Stop and end the game?')"
+                {% if current_status == 'stopped' %}disabled{% endif %}>
+          ⏹ End Game
+        </button>
+      </form>
+    </div>
+
+    <div style="margin-top:20px">
+      <h3 style="font-size:0.85rem;margin-bottom:8px">Broadcast to All Boxes</h3>
+      <div class="action-row" style="flex-wrap:wrap;gap:8px">
+        {% for cmd, label in [('reboot','🔄 Reboot All'),('deactivate','⏸ Deactivate All'),('activate','▶ Activate All')] %}
+        <form method="post" action="{{ url_for('box_command', box_id='ALL') }}">
+          <button name="command" value="{{ cmd }}" class="btn btn-sm btn-secondary"
+                  onclick="return confirm('Send {{ cmd }} to ALL boxes?')">{{ label }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- GAME HISTORY -->
+<div class="card" style="margin-top:20px">
+  <h2 class="card-title">Game History</h2>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Scenario</th><th>Started</th><th>Ended</th><th>Status</th><th>Winner</th></tr>
+    </thead>
+    <tbody>
+      {% for g in games %}
+      <tr>
+        <td>{{ g.name }}</td>
+        <td class="text-muted">{{ g.scenario_name or '—' }}</td>
+        <td class="small text-muted">{{ g.started_at[:16] if g.started_at else '—' }}</td>
+        <td class="small text-muted">{{ g.ended_at[:16] if g.ended_at else '—' }}</td>
+        <td><span class="tag tag-{{ 'ok' if g.status=='finished' else 'warning' if g.status=='active' else 'muted' }}">{{ g.status }}</span></td>
+        <td>{{ g.winner_faction or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No games yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

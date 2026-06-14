@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}NFC Scanner — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>NFC Scanner</h1>
+  <span class="text-muted small">RC522 on GPIO — SPI</span>
+</div>
+
+<div class="grid grid-2">
+
+  <!-- SCAN PANEL -->
+  <div class="card">
+    <h2 class="card-title">Scan a Card</h2>
+    <div class="nfc-scanner-area" id="scanner-area">
+      <div class="nfc-icon" id="nfc-icon">📡</div>
+      <div class="nfc-status" id="nfc-status">Ready to scan</div>
+      <div class="nfc-uid" id="nfc-uid"></div>
+    </div>
+    <div class="form-row" style="margin-top:16px">
+      <button class="btn btn-primary" id="btn-scan" onclick="startScan()">Start Scan</button>
+      <button class="btn btn-secondary" id="btn-cancel" onclick="cancelScan()" style="display:none">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ACTION PANEL -->
+  <div class="card" id="action-panel" style="opacity:0.4;pointer-events:none">
+    <h2 class="card-title">Card Actions</h2>
+
+    <div id="card-info" class="card-info-box" style="display:none"></div>
+
+    <div class="action-section">
+      <h3>Register to Faction</h3>
+      <form method="post" action="{{ url_for('card_register') }}" id="register-form">
+        <input type="hidden" name="uid" id="reg-uid">
+        <div class="faction-selector" id="faction-selector">
+          {% for f in factions %}
+          <label class="faction-option" style="--fc:{{ f.color_hex }}">
+            <input type="radio" name="faction_id" value="{{ f.id }}">
+            <span class="faction-option-inner">
+              <span class="faction-dot-lg" style="background:{{ f.color_hex }}"></span>
+              <span class="faction-option-name">{{ f.name }}</span>
+              <span class="faction-option-sub">{{ f.color_name }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <input type="text" name="player_name" placeholder="Player name (optional)" class="input">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Register Card</button>
+      </form>
+    </div>
+
+    <div class="action-section" style="margin-top:16px">
+      <h3>Other Actions</h3>
+      <div class="action-row">
+        <form method="post" id="reset-form" action="">
+          <button type="submit" class="btn btn-danger"
+                  onclick="return confirm('Reset this card?')">
+            🗑 Reset Card
+          </button>
+        </form>
+        <form method="post" id="block-form" action="">
+          <button type="submit" class="btn btn-warning">🚫 Block Card</button>
+        </form>
+        <form method="post" id="unblock-form" action="">
+          <button type="submit" class="btn btn-success">✓ Unblock</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- HOW TO USE -->
+<div class="card" style="margin-top:20px">
+  <h2 class="card-title">How to Use the NFC Scanner</h2>
+  <div class="how-to-grid">
+    <div class="how-to-step">
+      <span class="step-num">1</span>
+      <div>
+        <strong>Connect RC522</strong>
+        <p>Ensure the RC522 reader is wired to the Pi GPIO. SPI must be enabled in raspi-config.</p>
+      </div>
+    </div>
+    <div class="how-to-step">
+      <span class="step-num">2</span>
+      <div>
+        <strong>Click "Start Scan"</strong>
+        <p>The reader listens for 10 seconds. Hold a card near the reader.</p>
+      </div>
+    </div>
+    <div class="how-to-step">
+      <span class="step-num">3</span>
+      <div>
+        <strong>Card detected</strong>
+        <p>The UID appears and existing registration info loads automatically.</p>
+      </div>
+    </div>
+    <div class="how-to-step">
+      <span class="step-num">4</span>
+      <div>
+        <strong>Take action</strong>
+        <p>Select a faction and register, or use reset/block as needed.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box" style="margin-top:16px">
+    <strong>Card types:</strong>
+    NTAG213/215/216 and MIFARE Classic are supported game cards.
+    Bank cards (ISO 14443-4) are detected and logged but cannot be registered.
+    The scanner identifies the card type automatically.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let scanInterval = null;
+let currentUid = null;
+
+function startScan() {
+  document.getElementById('btn-scan').style.display = 'none';
+  document.getElementById('btn-cancel').style.display = '';
+  document.getElementById('nfc-status').textContent = 'Scanning… hold card near reader';
+  document.getElementById('nfc-icon').classList.add('scanning');
+  document.getElementById('scanner-area').classList.add('scanning');
+
+  // Poll the scan API every 500ms
+  let attempts = 0;
+  scanInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > 20) { cancelScan(); return; } // 10s timeout
+
+    try {
+      const res  = await fetch('/api/nfc/scan');
+      const data = await res.json();
+      if (data.uid) {
+        clearInterval(scanInterval);
+        onCardFound(data);
+      }
+    } catch(e) { console.error(e); }
+  }, 500);
+}
+
+function cancelScan() {
+  clearInterval(scanInterval);
+  document.getElementById('btn-scan').style.display = '';
+  document.getElementById('btn-cancel').style.display = 'none';
+  document.getElementById('nfc-status').textContent = 'Ready to scan';
+  document.getElementById('nfc-icon').classList.remove('scanning');
+  document.getElementById('scanner-area').classList.remove('scanning');
+}
+
+function onCardFound(data) {
+  currentUid = data.uid;
+  document.getElementById('nfc-status').textContent = 'Card found!';
+  document.getElementById('nfc-uid').textContent = data.uid;
+  document.getElementById('nfc-icon').textContent = data.card_type === 'bankcard' ? '💳' : '🃏';
+  document.getElementById('scanner-area').classList.remove('scanning');
+  document.getElementById('scanner-area').classList.add('found');
+  document.getElementById('btn-scan').style.display = '';
+  document.getElementById('btn-cancel').style.display = 'none';
+
+  // Enable action panel
+  const panel = document.getElementById('action-panel');
+  panel.style.opacity = '1';
+  panel.style.pointerEvents = '';
+
+  // Set UIDs in forms
+  document.getElementById('reg-uid').value = data.uid;
+  document.getElementById('reset-form').action  = `/cards/${data.uid}/reset`;
+  document.getElementById('block-form').action  = `/cards/${data.uid}/block`;
+  document.getElementById('unblock-form').action = `/cards/${data.uid}/unblock`;
+
+  // Show card info
+  const infoBox = document.getElementById('card-info');
+  if (data.registered) {
+    infoBox.style.display = '';
+    infoBox.innerHTML = `
+      <div class="card-info-row">
+        <span class="card-info-label">Faction</span>
+        <span class="badge" style="background:${data.color_hex}20;color:${data.color_hex}">
+          ${data.faction_name}
+        </span>
+      </div>
+      <div class="card-info-row">
+        <span class="card-info-label">Player</span>
+        <span>${data.player_name || '—'}</span>
+      </div>
+      <div class="card-info-row">
+        <span class="card-info-label">Scans</span>
+        <span>${data.scan_count}</span>
+      </div>
+      <div class="card-info-row">
+        <span class="card-info-label">Type</span>
+        <span>${data.card_type}${data.card_type === 'bankcard' ? ' — cannot register' : ''}</span>
+      </div>`;
+  } else {
+    infoBox.style.display = '';
+    infoBox.innerHTML = `<div class="card-info-row text-muted">
+      ${data.card_type === 'bankcard'
+        ? '💳 Bank card detected — cannot be registered as a game card.'
+        : '🆕 New card — not yet registered. Select a faction below.'
+      }
+    </div>`;
+  }
+
+  // Disable faction selector for bank cards
+  if (data.card_type === 'bankcard') {
+    document.getElementById('faction-selector').style.opacity = '0.4';
+    document.getElementById('faction-selector').style.pointerEvents = 'none';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ box.name or box.box_id }} Events — CaptureBox{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ box.name or box.box_id }}</h1>
+    <p class="text-muted small">{{ box.location_desc or 'No location' }} · {{ box.box_id }}</p>
+  </div>
+  <div class="action-row">
+    <a href="{{ url_for('box_edit', box_id=box.box_id) }}" class="btn btn-secondary">Edit</a>
+    <a href="{{ url_for('boxes') }}" class="btn btn-secondary">← Boxes</a>
+  </div>
+</div>
+
+<!-- BOX STATS -->
+<div class="grid grid-4" style="margin-bottom:20px">
+  <div class="card stat-card">
+    <div class="stat-label">Battery</div>
+    <div class="stat-value {% if box.battery_pct and box.battery_pct < 20 %}text-danger{% endif %}">
+      {{ box.battery_pct or '—' }}{% if box.battery_pct %}%{% endif %}
+    </div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Signal</div>
+    <div class="stat-value">{{ box.rssi or '—' }}{% if box.rssi %} dBm{% endif %}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Firmware</div>
+    <div class="stat-value small">{{ box.firmware_ver or '—' }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Last Seen</div>
+    <div class="stat-value small">{{ box.last_heartbeat[11:16] if box.last_heartbeat else 'Never' }}</div>
+  </div>
+</div>
+
+<!-- EVENTS -->
+<div class="card">
+  <h2 class="card-title">Event Log (last 100)</h2>
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Event</th><th>Faction</th><th>Card UID</th><th>Player</th><th>RSSI</th></tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="small text-muted mono">{{ e.timestamp[:16] }}</td>
+        <td><span class="event-type event-{{ e.event_type }}">{{ e.event_type }}</span></td>
+        <td>
+          {% if e.faction_id %}
+          <span class="badge" style="background:{{ e.color_hex }}20;color:{{ e.color_hex }}">
+            {{ e.color_name }}
+          </span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td class="mono small text-muted">{{ e.card_uid or '—' }}</td>
+        <td class="small">{{ e.player_name or '—' }}</td>
+        <td class="small text-muted">{{ e.rssi or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No events for this box yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

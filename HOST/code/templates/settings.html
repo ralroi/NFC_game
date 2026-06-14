@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Settings — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header"><h1>Settings</h1></div>
+
+<form method="post" style="max-width:700px">
+
+  <!-- AUDIO -->
+  <div class="card" style="margin-bottom:20px">
+    <h2 class="card-title">Audio</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Default Volume (0–30)</label>
+        <input type="number" name="volume_default" class="input"
+               value="{{ s.volume_default }}" min="0" max="30">
+      </div>
+      <div class="form-group">
+        <label>Silent from (hour)</label>
+        <input type="number" name="silent_from" class="input"
+               value="{{ s.silent_from }}" min="0" max="23">
+      </div>
+      <div class="form-group">
+        <label>Silent until (hour)</label>
+        <input type="number" name="silent_until" class="input"
+               value="{{ s.silent_until }}" min="0" max="23">
+      </div>
+    </div>
+    <small class="hint">Silent hours suppress box speakers. Pushed to all boxes on save.</small>
+  </div>
+
+  <!-- LED BRIGHTNESS -->
+  <div class="card" style="margin-bottom:20px">
+    <h2 class="card-title">LED Brightness Tiers</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Active (0–255)</label>
+        <small class="hint">Just scanned</small>
+        <input type="number" name="bri_active" class="input"
+               value="{{ s.bri_active }}" min="0" max="255">
+      </div>
+      <div class="form-group">
+        <label>Idle (0–255)</label>
+        <small class="hint">No activity {{ s.dim_idle_sec }}s</small>
+        <input type="number" name="bri_idle" class="input"
+               value="{{ s.bri_idle }}" min="0" max="255">
+      </div>
+      <div class="form-group">
+        <label>Sleep (0–255)</label>
+        <small class="hint">No activity {{ s.dim_sleep_sec }}s</small>
+        <input type="number" name="bri_sleep" class="input"
+               value="{{ s.bri_sleep }}" min="0" max="255">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Dim after (seconds)</label>
+        <input type="number" name="dim_idle_sec" class="input"
+               value="{{ s.dim_idle_sec }}" min="30">
+      </div>
+      <div class="form-group">
+        <label>Sleep after (seconds)</label>
+        <input type="number" name="dim_sleep_sec" class="input"
+               value="{{ s.dim_sleep_sec }}" min="60">
+      </div>
+    </div>
+  </div>
+
+  <!-- POWER / COMMS -->
+  <div class="card" style="margin-bottom:20px">
+    <h2 class="card-title">Power &amp; Communications</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>LoRa TX power (2–20 dBm)</label>
+        <input type="number" name="lora_tx_power" class="input"
+               value="{{ s.lora_tx_power }}" min="2" max="20">
+        <small class="hint">14 dBm recommended. 22 dBm = max range, higher battery use</small>
+      </div>
+      <div class="form-group">
+        <label>Heartbeat interval (seconds)</label>
+        <input type="number" name="heartbeat_sec" class="input"
+               value="{{ s.heartbeat_sec }}" min="10">
+        <small class="hint">30s = responsive, 120s = battery saving</small>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>WiFi RSSI — good threshold (dBm)</label>
+        <input type="number" name="rssi_good" class="input"
+               value="{{ s.rssi_good }}" min="-100" max="0">
+        <small class="hint">Switch to WiFi when signal above this</small>
+      </div>
+      <div class="form-group">
+        <label>WiFi RSSI — poor threshold (dBm)</label>
+        <input type="number" name="rssi_poor" class="input"
+               value="{{ s.rssi_poor }}" min="-100" max="0">
+        <small class="hint">Switch to LoRa when signal below this</small>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Default WiFi mode for all boxes</label>
+      <select name="wifi_mode" class="input">
+        <option value="0" {% if s.wifi_mode=='0' %}selected{% endif %}>
+          Auto — smart switch based on signal strength</option>
+        <option value="1" {% if s.wifi_mode=='1' %}selected{% endif %}>
+          WiFi only — always prefer WiFi</option>
+        <option value="2" {% if s.wifi_mode=='2' %}selected{% endif %}>
+          LoRa only — maximum battery saving, no WiFi</option>
+      </select>
+    </div>
+    <div class="info-box" style="margin-top:12px">
+      <strong>Auto mode:</strong> box uses WiFi when RSSI is above the good threshold,
+      switches to LoRa when it drops below the poor threshold, and re-enables WiFi
+      if signal recovers. WiFi radio is powered off during LoRa-only periods.
+    </div>
+  </div>
+
+  <!-- DISCORD -->
+  <div class="card" style="margin-bottom:20px">
+    <h2 class="card-title">Discord Notifications <span class="tag tag-muted">Optional</span></h2>
+    <div class="form-group">
+      <label class="toggle-label">
+        <input type="checkbox" name="discord_enabled" value="1"
+               {% if s.discord_enabled == '1' %}checked{% endif %}>
+        Enable Discord notifications
+      </label>
+    </div>
+    <div class="form-group">
+      <label>Webhook URL</label>
+      <input type="url" name="discord_webhook" class="input"
+             value="{{ s.discord_webhook }}"
+             placeholder="https://discord.com/api/webhooks/…">
+    </div>
+    <div class="form-group">
+      <label>Events to send (comma-separated)</label>
+      <input type="text" name="discord_events" class="input"
+             value="{{ s.discord_events }}"
+             placeholder="capture,lost,game_start,game_end">
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save &amp; Push to All Boxes</button>
+</form>
+{% endblock %}

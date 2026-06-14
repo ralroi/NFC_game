@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Boxes — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Box Management</h1>
+  <a href="{{ url_for('box_add') }}" class="btn btn-primary">+ Add Box</a>
+</div>
+
+<!-- BROADCAST POWER (all boxes) -->
+<div class="card" style="margin-bottom:20px">
+  <h2 class="card-title">Broadcast Power Settings — All Boxes</h2>
+  <form method="post" action="{{ url_for('broadcast_power') }}">
+    <div class="power-grid">
+      <div class="form-group">
+        <label>Volume (0–30)</label>
+        <input type="number" name="volume" value="20" min="0" max="30" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>Brightness active (0–255)</label>
+        <input type="number" name="bri_active" value="80" min="0" max="255" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>Brightness idle</label>
+        <input type="number" name="bri_idle" value="20" min="0" max="255" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>Brightness sleep</label>
+        <input type="number" name="bri_sleep" value="5" min="0" max="255" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>Dim after (sec)</label>
+        <input type="number" name="dim_idle_sec" value="120" min="30" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>Sleep after (sec)</label>
+        <input type="number" name="dim_sleep_sec" value="600" min="60" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>LoRa power (dBm)</label>
+        <input type="number" name="lora_power" value="14" min="2" max="20" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>Heartbeat (sec)</label>
+        <input type="number" name="heartbeat_sec" value="30" min="10" class="input input-sm">
+      </div>
+      <div class="form-group">
+        <label>WiFi mode</label>
+        <select name="wifi_mode" class="input input-sm">
+          <option value="0">Auto (smart switch)</option>
+          <option value="1">WiFi only</option>
+          <option value="2">LoRa only</option>
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:12px"
+            onclick="return confirm('Send power settings to ALL boxes?')">
+      📡 Broadcast to All Boxes
+    </button>
+  </form>
+</div>
+
+<!-- BOX CARDS -->
+<div class="grid grid-auto">
+{% for b in boxes %}
+<div class="card box-card {% if b.stolen %}box-stolen{% elif not b.active %}box-inactive{% endif %}">
+
+  <!-- Header -->
+  <div class="box-card-header">
+    <div class="box-id-badge">{{ b.box_id }}</div>
+    <div class="box-indicators">
+      {% if b.stolen %}<span class="tag tag-danger">⚠ STOLEN</span>{% endif %}
+      {% if not b.active %}<span class="tag tag-muted">OFF</span>{% endif %}
+
+      <!-- Comms mode badge -->
+      {% set cm = b.comms_mode or 'unknown' %}
+      {% if cm == 'w' %}
+        <span class="tag tag-ok">📶 WiFi</span>
+      {% elif cm == 'l' %}
+        <span class="tag tag-warning">📻 LoRa</span>
+      {% elif cm == 'lf' %}
+        <span class="tag tag-warning">📻 LoRa forced</span>
+      {% else %}
+        <span class="tag tag-muted">? Unknown</span>
+      {% endif %}
+
+      <!-- Battery -->
+      {% if b.battery_pct is not none %}
+      <span class="battery {% if b.battery_pct < 20 %}battery-low{% elif b.battery_pct < 50 %}battery-mid{% else %}battery-ok{% endif %}">
+        🔋{{ b.battery_pct }}%
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="box-name">{{ b.name or b.box_id }}</div>
+  <div class="box-location text-muted small">📍 {{ b.location_desc or 'No location' }}</div>
+
+  <!-- Owner status -->
+  <div style="margin:8px 0">
+    {% if b.current_faction %}
+    <span class="badge" style="background:{{ b.color_hex }}20;color:{{ b.color_hex }}">
+      ● {{ b.faction_name }} since {{ b.owned_since[11:16] if b.owned_since else '?' }}
+    </span>
+    {% else %}
+    <span class="badge badge-neutral">○ Neutral</span>
+    {% endif %}
+  </div>
+
+  <!-- Signal info -->
+  <div class="box-meta small text-muted">
+    LoRa RSSI: {{ b.rssi or '—' }} dBm
+    {% if b.wifi_rssi %}· WiFi: {{ b.wifi_rssi }} dBm{% endif %}
+    · FW: {{ b.firmware_ver or '—' }}
+    · Seen: {{ b.last_heartbeat[11:16] if b.last_heartbeat else 'Never' }}
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="box-actions" style="margin-top:12px">
+    <a href="{{ url_for('box_edit', box_id=b.box_id) }}" class="btn btn-sm">Edit</a>
+    <a href="{{ url_for('box_events', box_id=b.box_id) }}" class="btn btn-sm">Events</a>
+
+    <!-- Main commands dropdown -->
+    <div class="dropdown">
+      <button class="btn btn-sm btn-secondary">Commands ▾</button>
+      <div class="dropdown-menu">
+
+        <!-- Activate / Deactivate -->
+        <form method="post" action="{{ url_for('box_command', box_id=b.box_id) }}">
+          {% if b.active %}
+          <button name="command" value="deactivate" class="dropdown-item">⏸ Deactivate</button>
+          {% else %}
+          <button name="command" value="activate" class="dropdown-item">▶ Activate</button>
+          {% endif %}
+        </form>
+
+        <form method="post" action="{{ url_for('box_command', box_id=b.box_id) }}">
+          <button name="command" value="reboot" class="dropdown-item">🔄 Reboot</button>
+        </form>
+
+        <form method="post" action="{{ url_for('box_command', box_id=b.box_id) }}"
+              onsubmit="return confirm('Reset ownership on {{ b.box_id }}?')">
+          <button name="command" value="reset_ownership" class="dropdown-item">🚫 Reset Ownership</button>
+        </form>
+
+        <div class="dropdown-divider"></div>
+
+        <!-- Stolen -->
+        <form method="post" action="{{ url_for('box_command', box_id=b.box_id) }}">
+          {% if b.stolen %}
+          <button name="command" value="clear_stolen" class="dropdown-item">✓ Clear Stolen</button>
+          {% else %}
+          <button name="command" value="mark_stolen" class="dropdown-item text-danger"
+                  onclick="return confirm('Mark as stolen?')">⚠ Mark Stolen</button>
+          {% endif %}
+        </form>
+
+      </div>
+    </div>
+
+    <!-- Power settings button -->
+    <button class="btn btn-sm btn-secondary"
+            onclick="togglePower('{{ b.box_id }}')">⚡ Power</button>
+
+    <!-- WiFi button -->
+    <button class="btn btn-sm btn-secondary"
+            onclick="toggleWifi('{{ b.box_id }}')">📶 WiFi</button>
+  </div>
+
+  <!-- POWER SETTINGS PANEL (hidden by default) -->
+  <div id="power-{{ b.box_id }}" class="power-panel" style="display:none">
+    <h3 class="panel-title">Power Settings</h3>
+    <form method="post" action="/boxes/{{ b.box_id }}/power">
+      <div class="power-grid-sm">
+        <div class="form-group">
+          <label>Brightness active</label>
+          <input type="number" name="bri_active" value="80" min="0" max="255" class="input">
+        </div>
+        <div class="form-group">
+          <label>Brightness idle</label>
+          <input type="number" name="bri_idle" value="20" min="0" max="255" class="input">
+        </div>
+        <div class="form-group">
+          <label>Brightness sleep</label>
+          <input type="number" name="bri_sleep" value="5" min="0" max="255" class="input">
+        </div>
+        <div class="form-group">
+          <label>Dim after (sec)</label>
+          <input type="number" name="dim_idle_sec" value="120" min="30" class="input">
+        </div>
+        <div class="form-group">
+          <label>Sleep after (sec)</label>
+          <input type="number" name="dim_sleep_sec" value="600" min="60" class="input">
+        </div>
+        <div class="form-group">
+          <label>LoRa power (dBm)</label>
+          <input type="number" name="lora_power" value="14" min="2" max="20" class="input">
+        </div>
+        <div class="form-group">
+          <label>Heartbeat (sec)</label>
+          <input type="number" name="heartbeat_sec" value="30" min="10" class="input">
+        </div>
+        <div class="form-group">
+          <label>WiFi mode</label>
+          <select name="wifi_mode" class="input">
+            <option value="0">Auto</option>
+            <option value="1">WiFi only</option>
+            <option value="2">LoRa only</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">Send to {{ b.box_id }}</button>
+    </form>
+  </div>
+
+  <!-- WIFI PANEL (hidden by default) -->
+  <div id="wifi-{{ b.box_id }}" class="power-panel" style="display:none">
+    <h3 class="panel-title">Update WiFi — sent via LoRa on next heartbeat</h3>
+    <form method="post" action="/boxes/{{ b.box_id }}/wifi_cred">
+      <div class="form-group">
+        <label>New WiFi SSID</label>
+        <input type="text" name="ssid" placeholder="Leave blank to keep current" class="input">
+      </div>
+      <div class="form-group">
+        <label>New WiFi Password</label>
+        <input type="password" name="password" placeholder="Leave blank to keep current" class="input">
+      </div>
+      <div class="form-group">
+        <label>Pi IP address</label>
+        <input type="text" name="pi_ip" placeholder="e.g. 192.168.1.100" class="input">
+      </div>
+      <div class="action-row">
+        <button type="submit" class="btn btn-sm btn-primary">Send via LoRa</button>
+        <form method="post" action="{{ url_for('box_wifi_mode', box_id=b.box_id) }}"
+              style="display:inline">
+          <input type="hidden" name="mode" value="0">
+          <button class="btn btn-sm">Reset to Auto</button>
+        </form>
+        <form method="post" action="{{ url_for('box_wifi_mode', box_id=b.box_id) }}"
+              style="display:inline">
+          <input type="hidden" name="mode" value="2">
+          <button class="btn btn-sm btn-warning">Force LoRa</button>
+        </form>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No boxes registered yet.</p>
+  <a href="{{ url_for('box_add') }}" class="btn btn-primary">Add your first box</a>
+</div>
+{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.power-grid   { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; }
+.power-grid-sm{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.power-panel  { margin-top:12px; padding:12px; background:var(--bg-input);
+                border-radius:var(--radius); border:1px solid var(--border); }
+.panel-title  { font-size:0.72rem; text-transform:uppercase; letter-spacing:1px;
+                color:var(--text-muted); margin-bottom:10px; }
+</style>
+<script>
+function togglePower(boxId) {
+  const el = document.getElementById('power-'+boxId);
+  const wf = document.getElementById('wifi-'+boxId);
+  wf.style.display = 'none';
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function toggleWifi(boxId) {
+  const el = document.getElementById('wifi-'+boxId);
+  const pw = document.getElementById('power-'+boxId);
+  pw.style.display = 'none';
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+// Dropdown toggle
+document.querySelectorAll('.dropdown').forEach(d => {
+  d.querySelector('button').addEventListener('click', e => {
+    e.stopPropagation();
+    d.classList.toggle('open');
+  });
+});
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+});
+</script>
+{% endblock %}

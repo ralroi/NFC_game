@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard — CaptureBox{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Leaderboard</h1>
+</div>
+
+<!-- FACTION PODIUM -->
+<div class="podium">
+{% for s in scores %}
+<div class="podium-step podium-{{ loop.index }}" style="border-color:{{ s.color_hex }}">
+  <div class="podium-rank">#{{ loop.index }}</div>
+  <div class="podium-dot" style="background:{{ s.color_hex }}"></div>
+  <div class="podium-name" style="color:{{ s.color_hex }}">{{ s.name }}</div>
+  <div class="podium-time">
+    {{ '%d'|format(s.minutes_owned // 60) }}h {{ '%02d'|format(s.minutes_owned % 60) }}m
+  </div>
+  <div class="podium-boxes">{{ s.boxes_held }} box{% if s.boxes_held != 1 %}es{% endif %} held</div>
+</div>
+{% endfor %}
+</div>
+
+<!-- PLAYER LEADERBOARD -->
+<div class="card" style="margin-top:24px">
+  <h2 class="card-title">Player Rankings</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Player</th>
+        <th>Faction</th>
+        <th>Captures</th>
+        <th>Total Scans</th>
+        <th>Last Active</th>
+        <th>Last Box</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in players %}
+      <tr>
+        <td class="text-muted">{{ loop.index }}</td>
+        <td><strong>{{ p.player_name or p.uid[:8] + '…' }}</strong></td>
+        <td>
+          <span class="badge" style="background:{{ p.color_hex }}20;color:{{ p.color_hex }}">
+            {{ p.color_name }}
+          </span>
+        </td>
+        <td><strong>{{ p.captures }}</strong></td>
+        <td>{{ p.scan_count }}</td>
+        <td class="small text-muted">
+          {{ p.last_seen_at[:16] if p.last_seen_at else 'Never' }}
+        </td>
+        <td class="small text-muted">{{ p.last_seen_box or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">No player data yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- BOX OWNERSHIP TABLE -->
+<div class="card" style="margin-top:20px">
+  <h2 class="card-title">Faction Score Breakdown</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Faction</th>
+        <th>Time Owned</th>
+        <th>Boxes Currently Held</th>
+        <th>Share</th>
+      </tr>
+    </thead>
+    {% set total_min = scores | sum(attribute='minutes_owned') or 1 %}
+    <tbody>
+      {% for s in scores %}
+      <tr>
+        <td>
+          <span class="badge" style="background:{{ s.color_hex }}20;color:{{ s.color_hex }}">
+            {{ s.name }}
+          </span>
+        </td>
+        <td><strong>{{ '%d'|format(s.minutes_owned // 60) }}h {{ '%02d'|format(s.minutes_owned % 60) }}m</strong></td>
+        <td>{{ s.boxes_held }}</td>
+        <td>
+          <div class="bar-bg" style="width:160px;display:inline-block">
+            <div class="bar-fill" style="width:{{ [(s.minutes_owned / total_min * 100)|int, 100]|min }}%;background:{{ s.color_hex }}"></div>
+          </div>
+          {{ (s.minutes_owned / total_min * 100)|int }}%
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
