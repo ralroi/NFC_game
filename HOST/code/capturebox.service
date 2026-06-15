@@ -1,0 +1,15 @@
+[Unit]
+Description=CaptureBox Web Application
+After=network.target
+
+[Service]
+WorkingDirectory=/home/pi_game/capturebox
+ExecStart=/home/pi_game/capturebox/venv/bin/python app.py
+Restart=always
+RestartSec=5
+User=pi_game
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

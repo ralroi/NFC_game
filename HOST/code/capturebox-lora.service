@@ -1,0 +1,16 @@
+[Unit]
+Description=CaptureBox LoRa Receiver
+After=network.target
+Wants=capturebox.service
+
+[Service]
+WorkingDirectory=/home/pi_game/capturebox
+ExecStart=/home/pi_game/capturebox/venv/bin/python lora_receiver.py
+Restart=always
+RestartSec=5
+User=pi_game
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
